@@ -85,6 +85,15 @@ st.markdown("""
         height: 40px;
         object-fit: contain;
     }
+    
+    /* Word count styling */
+    .word-count {
+        text-align: right;
+        color: #666;
+        font-size: 0.85em;
+        margin-top: -10px;
+        margin-bottom: 10px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -389,16 +398,21 @@ with right_col:
             help="Edit the text directly - changes are saved automatically"
         )
         
+        # Word count display for brief
+        word_count_brief = len(val_brief.split())
+        st.markdown(f"<p class='word-count'>Word count: {word_count_brief}</p>", unsafe_allow_html=True)
+        
         # Controls Row
         c1, c2 = st.columns([1, 2])
         
-        # Copy Button - Direct Copy
-        if c1.button("Copy Text", key="copy_brief", use_container_width=True):
+        # Copy Button - Direct Copy to clipboard
+        if c1.button("📋 Copy Text", key="copy_brief", use_container_width=True):
             try:
                 pyperclip.copy(val_brief)
-                st.success("✓ Copied to clipboard!")
+                st.success("✓ Copied to clipboard!", icon="✅")
             except:
-                st.info("Copy this text:")
+                # Fallback for web environments where pyperclip might not work
+                st.info("📋 Text ready to copy - use Ctrl+C (Cmd+C on Mac)")
                 st.code(val_brief, language=None)
         
         # Redo Brief
@@ -454,15 +468,19 @@ Original Text:
                 help="Edit citation - changes saved automatically"
             )
             
+            # Word count display for citation
+            word_count_cite = len(val_cite.split())
+            st.markdown(f"<p class='word-count'>Word count: {word_count_cite}</p>", unsafe_allow_html=True)
+            
             d1, d2 = st.columns([1, 2])
             
-            # Copy Citation
-            if d1.button("Copy", key="copy_cite", use_container_width=True):
+            # Copy Citation - Direct copy
+            if d1.button("📋 Copy", key="copy_cite", use_container_width=True):
                 try:
                     pyperclip.copy(val_cite)
-                    st.success("✓ Citation copied!")
+                    st.success("✓ Citation copied!", icon="✅")
                 except:
-                    st.info("Copy this citation:")
+                    st.info("📋 Citation ready to copy - use Ctrl+C (Cmd+C on Mac)")
                     st.code(val_cite, language=None)
             
             # Redo Citation
