@@ -1,7 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
 from utils import generate_docx, update_sheet
-import pyperclip
 from datetime import datetime
 from awards import format_examples_for_prompt, get_citation_examples
 
@@ -95,6 +94,29 @@ st.markdown("""
         margin-bottom: 10px;
     }
     </style>
+    
+    <script>
+    // Force Streamlit to rerun on textarea change for live word count
+    document.addEventListener('DOMContentLoaded', function() {
+        const observer = new MutationObserver(function(mutations) {
+            const textareas = document.querySelectorAll('textarea');
+            textareas.forEach(function(textarea) {
+                if (!textarea.hasAttribute('data-word-count-listener')) {
+                    textarea.setAttribute('data-word-count-listener', 'true');
+                    let timeout;
+                    textarea.addEventListener('input', function() {
+                        clearTimeout(timeout);
+                        timeout = setTimeout(function() {
+                            // Trigger Streamlit rerun by simulating blur
+                            textarea.dispatchEvent(new Event('blur', { bubbles: true }));
+                        }, 500); // Update after 500ms of no typing
+                    });
+                }
+            });
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    });
+    </script>
 """, unsafe_allow_html=True)
 
 # --- STATE MANAGEMENT ---
@@ -331,12 +353,19 @@ INSTRUCTIONS:
 6. Tone: Professional, formal military writing
 7. Focus: Highlight any two or three of the serviceman's specific achievements, leadership, primary and secondary duties, inspiration to peers, attitude, safety, punctuality and contributions depending on the context given by user
 8. Style: Match the format, structure, and tone of the examples below
-9. Output: Provide ONLY the final justification text, no explanations or meta-commentary
+9. Formatting Rules:
+   - Do NOT use asterisks (*) for emphasis or highlighting
+   - Do NOT use bold, italics, or any special formatting
+   - Write in plain text only
+   - Do NOT end with recommendation phrases like "I recommend him", "he deserves", "worthy of this award", etc.
+   - End with the last achievement or quality statement
+10. Output: Provide ONLY the final justification text in plain text format with no explanations, no meta-commentary, no formatting marks
+
 {examples_text}
 DRAFT CONTENT:
 {main_draft}
 
-Generate the final award justification following all rules above.
+Generate the final award justification following all rules above. Remember: plain text only, no asterisks, no recommendation ending.
 """
                 # ============================================================================
                 
@@ -351,15 +380,21 @@ Generate the final award justification following all rules above.
                     # ============================================================================
                     cite_prompt = f"""
 Write a formal military citation for {s_rank} {full_name_caps} from the perspective of a commander.
+
 Requirements:
-- 2 pages
-- Formal tone
-- Highlight key achievement, duties and performance of the serviceman
-- Do not halucinate achievements
-- No exercise names
-- Output ONLY the citation text, no explanations
+- 2 pages in length
+- Formal, professional tone
+- Highlight key achievements, duties and performance of the serviceman
+- Base content strictly on the provided context - do not hallucinate or invent achievements
+- No exercise names - refer to them as "exercise" or "overseas exercise"
+- Plain text only - NO asterisks (*), NO bold, NO italics, NO special formatting
+- Do NOT include any meta-commentary, explanations, or notes
+- Do NOT end with recommendation phrases
+- Output ONLY the citation text in plain text format
 
 Context: {cite_draft if cite_draft else main_draft}
+
+Generate the citation now. Remember: plain text only, no formatting marks, no comments.
 """
                     # ============================================================================
                     cite_out = call_gemini(cite_prompt)
@@ -405,18 +440,23 @@ with right_col:
         # Controls Row
         c1, c2 = st.columns([1, 2])
         
-        # Copy Button - Direct Copy to clipboard (no extra textbox)
-        if c1.button("📋 Copy Text", key="copy_brief", use_container_width=True):
-            # Use JavaScript to copy to clipboard
+        # Copy Button - Direct Copy to clipboard using JavaScript
+        copy_clicked = c1.button("📋 Copy Text", key="copy_brief", use_container_width=True)
+        
+        # JavaScript to handle clipboard copy
+        if copy_clicked:
+            # Escape the text properly for JavaScript
+            escaped_text = val_brief.replace('\\', '\\\\').replace('`', '\\`').replace('$', '\\$').replace('\n', '\\n').replace('\r', '').replace('"', '\\"')
+            
             st.components.v1.html(
                 f"""
                 <script>
-                    const text = {repr(val_brief)};
-                    navigator.clipboard.writeText(text).then(function() {{
-                        console.log('Text copied to clipboard');
-                    }}).catch(function(err) {{
-                        console.error('Failed to copy: ', err);
-                    }});
+                const text = "{escaped_text}";
+                navigator.clipboard.writeText(text).then(function() {{
+                    console.log('Copied successfully');
+                }}, function(err) {{
+                    console.error('Copy failed:', err);
+                }});
                 </script>
                 """,
                 height=0,
@@ -482,18 +522,23 @@ Original Text:
             
             d1, d2 = st.columns([1, 2])
             
-            # Copy Citation - Direct copy (no extra textbox)
-            if d1.button("📋 Copy", key="copy_cite", use_container_width=True):
-                # Use JavaScript to copy to clipboard
+            # Copy Citation - Direct copy using JavaScript
+            cite_copy_clicked = d1.button("📋 Copy", key="copy_cite", use_container_width=True)
+            
+            # JavaScript to handle citation clipboard copy
+            if cite_copy_clicked:
+                # Escape the text properly for JavaScript
+                escaped_cite = val_cite.replace('\\', '\\\\').replace('`', '\\`').replace('$', '\\$').replace('\n', '\\n').replace('\r', '').replace('"', '\\"')
+                
                 st.components.v1.html(
                     f"""
                     <script>
-                        const text = {repr(val_cite)};
-                        navigator.clipboard.writeText(text).then(function() {{
-                            console.log('Citation copied to clipboard');
-                        }}).catch(function(err) {{
-                            console.error('Failed to copy: ', err);
-                        }});
+                    const text = "{escaped_cite}";
+                    navigator.clipboard.writeText(text).then(function() {{
+                        console.log('Citation copied successfully');
+                    }}, function(err) {{
+                        console.error('Citation copy failed:', err);
+                    }});
                     </script>
                     """,
                     height=0,
