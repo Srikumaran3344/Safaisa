@@ -249,16 +249,17 @@ with left_col:
         "Kranji Node",
         "Mandai Hill Node",
         "Light Transport COY",
-        "Combat Sustainment Coy"
+        "Combat Sustainment COY"
     ]
     s_unit = st.selectbox("Company / Node", COMPANIES)
     st.session_state.current_unit = s_unit  # Save for later use
     
     c1, c2, c3 = st.columns(3)
     s_rank = c1.text_input("Rank", key="i_rank", placeholder="e.g., CPL")
-    s_fname = c2.text_input("First Name", key="i_fname", placeholder="JOHN").upper()
-    s_lname = c3.text_input("Last Name", key="i_lname", placeholder="DEO").upper()
-    full_name_caps = f"{s_fname} {s_lname}".strip()
+    s_fname = c2.text_input("Full Name", key="i_fname", placeholder="JOHN DEO").upper()
+    s_lname = c3.text_input("Preffered / Last Name", key="i_lname", placeholder="DEO").upper()
+    
+    full_name_caps = f"{s_fname}".strip()
 
     # Month of Award Presentation
     MONTHS = [
@@ -316,12 +317,10 @@ INSTRUCTIONS:
 1. Tense: Use strictly Past or Present tense only
 2. Exercise Names: Remove ALL exercise names (e.g., Ex Wallaby, Ex Thunder) instead mention them as excercise or overseas excercise
 3. Opening Line: Start with 'Being a [appropriate adjective] {actual_role} from {s_unit}...'
-4. Name Usage:
-   - First mention: Use full '{s_rank} {full_name_caps}'
-   - Subsequent mentions: Use '{s_rank} {s_fname}'
+4. Name Usage: Use '{s_rank} {s_lname}'
 5. Length: Approximately {award_rule_text}
 6. Tone: Professional, formal military writing
-7. Focus: Highlight specific achievements, leadership, and contributions
+7. Focus: Highlight any two or three of the serviceman's specific achievements, leadership, primary and secondary duties, inspiration to peers, attitude, safety, punctuality and contributions depending on the context given by user
 8. Style: Match the format, structure, and tone of the examples below
 9. Output: Provide ONLY the final justification text, no explanations or meta-commentary
 {examples_text}
@@ -342,11 +341,12 @@ Generate the final award justification following all rules above.
                     # CITATION PROMPT - EDIT CITATION RULES HERE
                     # ============================================================================
                     cite_prompt = f"""
-Write a formal military citation for {s_rank} {full_name_caps}.
+Write a formal military citation for {s_rank} {full_name_caps} from the perspective of a commander.
 Requirements:
-- Exactly 50 words
+- 2 pages
 - Formal tone
-- Highlight key achievement
+- Highlight key achievement, duties and performance of the serviceman
+- Do not halucinate achievements
 - No exercise names
 - Output ONLY the citation text, no explanations
 
@@ -404,7 +404,7 @@ with right_col:
         # Redo Brief
         redo_note_brief = c2.text_input(
             "Modification Instructions",
-            placeholder="e.g., Make more humble, add more details",
+            placeholder="e.g., Make more humble, add more details such as..",
             label_visibility="collapsed"
         )
         if c2.button("🔄 Regenerate", key="redo_brief", use_container_width=True):
@@ -477,7 +477,7 @@ Original Text:
                         redo_prompt_cite = f"""
 Rewrite this citation with modifications: {redo_note_cite}
 
-Keep it 50 words, formal tone.
+Keep 2 page word limit, formal tone.
 Output ONLY the revised citation, no explanations.
 
 Original:
