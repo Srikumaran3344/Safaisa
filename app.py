@@ -398,22 +398,30 @@ with right_col:
             help="Edit the text directly - changes are saved automatically"
         )
         
-        # Word count display for brief
-        word_count_brief = len(val_brief.split())
+        # Word count display for brief (updates live as user types)
+        word_count_brief = len(val_brief.split()) if val_brief.strip() else 0
         st.markdown(f"<p class='word-count'>Word count: {word_count_brief}</p>", unsafe_allow_html=True)
         
         # Controls Row
         c1, c2 = st.columns([1, 2])
         
-        # Copy Button - Direct Copy to clipboard
+        # Copy Button - Direct Copy to clipboard (no extra textbox)
         if c1.button("📋 Copy Text", key="copy_brief", use_container_width=True):
-            try:
-                pyperclip.copy(val_brief)
-                st.success("✓ Copied to clipboard!", icon="✅")
-            except:
-                # Fallback for web environments where pyperclip might not work
-                st.info("📋 Text ready to copy - use Ctrl+C (Cmd+C on Mac)")
-                st.code(val_brief, language=None)
+            # Use JavaScript to copy to clipboard
+            st.components.v1.html(
+                f"""
+                <script>
+                    const text = {repr(val_brief)};
+                    navigator.clipboard.writeText(text).then(function() {{
+                        console.log('Text copied to clipboard');
+                    }}).catch(function(err) {{
+                        console.error('Failed to copy: ', err);
+                    }});
+                </script>
+                """,
+                height=0,
+            )
+            st.success("✓ Copied to clipboard!", icon="✅")
         
         # Redo Brief
         redo_note_brief = c2.text_input(
@@ -468,20 +476,29 @@ Original Text:
                 help="Edit citation - changes saved automatically"
             )
             
-            # Word count display for citation
-            word_count_cite = len(val_cite.split())
+            # Word count display for citation (updates live as user types)
+            word_count_cite = len(val_cite.split()) if val_cite.strip() else 0
             st.markdown(f"<p class='word-count'>Word count: {word_count_cite}</p>", unsafe_allow_html=True)
             
             d1, d2 = st.columns([1, 2])
             
-            # Copy Citation - Direct copy
+            # Copy Citation - Direct copy (no extra textbox)
             if d1.button("📋 Copy", key="copy_cite", use_container_width=True):
-                try:
-                    pyperclip.copy(val_cite)
-                    st.success("✓ Citation copied!", icon="✅")
-                except:
-                    st.info("📋 Citation ready to copy - use Ctrl+C (Cmd+C on Mac)")
-                    st.code(val_cite, language=None)
+                # Use JavaScript to copy to clipboard
+                st.components.v1.html(
+                    f"""
+                    <script>
+                        const text = {repr(val_cite)};
+                        navigator.clipboard.writeText(text).then(function() {{
+                            console.log('Citation copied to clipboard');
+                        }}).catch(function(err) {{
+                            console.error('Failed to copy: ', err);
+                        }});
+                    </script>
+                    """,
+                    height=0,
+                )
+                st.success("✓ Citation copied!", icon="✅")
             
             # Redo Citation
             redo_note_cite = d2.text_input(
