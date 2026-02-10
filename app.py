@@ -93,30 +93,32 @@ st.markdown("""
         margin-top: -10px;
         margin-bottom: 10px;
     }
-    </style>
     
-    <script>
-    // Force Streamlit to rerun on textarea change for live word count
-    document.addEventListener('DOMContentLoaded', function() {
-        const observer = new MutationObserver(function(mutations) {
-            const textareas = document.querySelectorAll('textarea');
-            textareas.forEach(function(textarea) {
-                if (!textarea.hasAttribute('data-word-count-listener')) {
-                    textarea.setAttribute('data-word-count-listener', 'true');
-                    let timeout;
-                    textarea.addEventListener('input', function() {
-                        clearTimeout(timeout);
-                        timeout = setTimeout(function() {
-                            // Trigger Streamlit rerun by simulating blur
-                            textarea.dispatchEvent(new Event('blur', { bubbles: true }));
-                        }, 500); // Update after 500ms of no typing
-                    });
-                }
-            });
-        });
-        observer.observe(document.body, { childList: true, subtree: true });
-    });
-    </script>
+    /* Copy notification styling */
+    .copy-notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #4CAF50;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 9999;
+        animation: slideIn 0.3s ease-out;
+    }
+    
+    @keyframes slideIn {
+        from {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    </style>
 """, unsafe_allow_html=True)
 
 # --- STATE MANAGEMENT ---
@@ -132,6 +134,10 @@ if "current_month" not in st.session_state:
     st.session_state.current_month = ""
 if "current_unit" not in st.session_state:
     st.session_state.current_unit = ""
+if "show_copy_notification" not in st.session_state:
+    st.session_state.show_copy_notification = False
+if "notification_message" not in st.session_state:
+    st.session_state.notification_message = ""
 
 # --- CALLBACKS ---
 def clear_form_callback():
@@ -288,7 +294,7 @@ with left_col:
     c1, c2, c3 = st.columns(3)
     s_rank = c1.text_input("Rank", key="i_rank", placeholder="e.g., CPL")
     s_fname = c2.text_input("Full Name", key="i_fname", placeholder="JOHN DEO").upper()
-    s_lname = c3.text_input("Preffered / Last Name", key="i_lname", placeholder="DEO").upper()
+    s_lname = c3.text_input("Preferred / Last Name", key="i_lname", placeholder="DEO").upper()
     
     full_name_caps = f"{s_fname}".strip()
 
@@ -315,13 +321,18 @@ with left_col:
         atp = q3.text_input("ATP Score", key="i_atp", placeholder="33")
         cite_draft = st.text_area("Citation Draft", key="i_cite_draft", height=100, placeholder="Brief citation content...")
 
-    # 6. Main Draft Input
+    # 6. Main Draft Input with live word count
     main_draft = st.text_area(
         "Draft Write-up",
         height=200,
         key="i_draft",
         placeholder="Enter the rough draft or key achievements here..."
     )
+    
+    # Live word count for draft input
+    if main_draft:
+        draft_word_count = len(main_draft.split())
+        st.markdown(f"<p class='word-count'>Word count: {draft_word_count}</p>", unsafe_allow_html=True)
     
     # === GENERATION BUTTON ===
     if st.button("✨ Generate Justification", type="primary", use_container_width=True):
@@ -346,7 +357,7 @@ Subject: {s_rank} {full_name_caps}
 
 INSTRUCTIONS:
 1. Tense: Use strictly Past or Present tense only
-2. Exercise Names: Remove ALL exercise names (e.g., Ex Wallaby, Ex Thunder) instead mention them as excercise or overseas excercise
+2. Exercise Names: Remove ALL exercise names (e.g., Ex Wallaby, Ex Thunder) instead mention them as exercise or overseas exercise
 3. Opening Line: Start with 'Being a [appropriate adjective] {actual_role} from {s_unit}...'
 4. Name Usage: Use '{s_rank} {s_lname}'
 5. Length: Approximately {award_rule_text}
@@ -433,35 +444,17 @@ with right_col:
             help="Edit the text directly - changes are saved automatically"
         )
         
-        # Word count display for brief (updates live as user types)
+        # Live word count display for brief
         word_count_brief = len(val_brief.split()) if val_brief.strip() else 0
         st.markdown(f"<p class='word-count'>Word count: {word_count_brief}</p>", unsafe_allow_html=True)
         
         # Controls Row
         c1, c2 = st.columns([1, 2])
         
-        # Copy Button - Direct Copy to clipboard using JavaScript
-        copy_clicked = c1.button("📋 Copy Text", key="copy_brief", use_container_width=True)
-        
-        # JavaScript to handle clipboard copy
-        if copy_clicked:
-            # Escape the text properly for JavaScript
-            escaped_text = val_brief.replace('\\', '\\\\').replace('`', '\\`').replace('$', '\\$').replace('\n', '\\n').replace('\r', '').replace('"', '\\"')
-            
-            st.components.v1.html(
-                f"""
-                <script>
-                const text = "{escaped_text}";
-                navigator.clipboard.writeText(text).then(function() {{
-                    console.log('Copied successfully');
-                }}, function(err) {{
-                    console.error('Copy failed:', err);
-                }});
-                </script>
-                """,
-                height=0,
-            )
-            st.success("✓ Copied to clipboard!", icon="✅")
+        # Copy Button - Using Streamlit's code block method
+        if c1.button("📋 Copy Text", key="copy_brief", use_container_width=True):
+            st.code(val_brief, language=None)
+            st.info("👆 Click the copy icon in the top-right corner of the text box above to copy")
         
         # Redo Brief
         redo_note_brief = c2.text_input(
@@ -516,34 +509,16 @@ Original Text:
                 help="Edit citation - changes saved automatically"
             )
             
-            # Word count display for citation (updates live as user types)
+            # Live word count display for citation
             word_count_cite = len(val_cite.split()) if val_cite.strip() else 0
             st.markdown(f"<p class='word-count'>Word count: {word_count_cite}</p>", unsafe_allow_html=True)
             
             d1, d2 = st.columns([1, 2])
             
-            # Copy Citation - Direct copy using JavaScript
-            cite_copy_clicked = d1.button("📋 Copy", key="copy_cite", use_container_width=True)
-            
-            # JavaScript to handle citation clipboard copy
-            if cite_copy_clicked:
-                # Escape the text properly for JavaScript
-                escaped_cite = val_cite.replace('\\', '\\\\').replace('`', '\\`').replace('$', '\\$').replace('\n', '\\n').replace('\r', '').replace('"', '\\"')
-                
-                st.components.v1.html(
-                    f"""
-                    <script>
-                    const text = "{escaped_cite}";
-                    navigator.clipboard.writeText(text).then(function() {{
-                        console.log('Citation copied successfully');
-                    }}, function(err) {{
-                        console.error('Citation copy failed:', err);
-                    }});
-                    </script>
-                    """,
-                    height=0,
-                )
-                st.success("✓ Citation copied!", icon="✅")
+            # Copy Citation - Using Streamlit's code block method
+            if d1.button("📋 Copy", key="copy_cite", use_container_width=True):
+                st.code(val_cite, language=None)
+                st.info("👆 Click the copy icon in the top-right corner of the text box above to copy")
             
             # Redo Citation
             redo_note_cite = d2.text_input(
