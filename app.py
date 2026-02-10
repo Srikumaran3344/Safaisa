@@ -15,7 +15,7 @@ MODEL_PRO = 'gemini-2.5-pro'      # Primary model for complex logic
 MODEL_FLASH = 'gemini-2.5-flash'  # Fallback model for speed
 
 # ============================================================================
-# AWARD RULES CONFIGURATION - EDIT WORD LIMITS HERE
+# AWARD RULES CONFIGURATION
 # ============================================================================
 AWARD_WORD_LIMITS = {
     "CO Coin": 100,
@@ -248,7 +248,7 @@ with left_col:
         "HQ COY",
         "Kranji Node",
         "Mandai Hill Node",
-        "LTC COY",
+        "Light Transport COY",
         "Combat Sustainment Coy"
     ]
     s_unit = st.selectbox("Company / Node", COMPANIES)
