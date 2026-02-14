@@ -94,29 +94,14 @@ st.markdown("""
         margin-bottom: 10px;
     }
     
-    /* Copy notification styling */
-    .copy-notification {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #4CAF50;
-        color: white;
-        padding: 12px 24px;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        z-index: 9999;
-        animation: slideIn 0.3s ease-out;
-    }
-    
-    @keyframes slideIn {
-        from {
-            transform: translateX(400px);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
+    /* Copy box styling */
+    .copy-box {
+        background-color: #f0f2f6;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        padding: 10px;
+        margin-top: 10px;
+        margin-bottom: 10px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -134,17 +119,18 @@ if "current_month" not in st.session_state:
     st.session_state.current_month = ""
 if "current_unit" not in st.session_state:
     st.session_state.current_unit = ""
-if "show_copy_notification" not in st.session_state:
-    st.session_state.show_copy_notification = False
-if "notification_message" not in st.session_state:
-    st.session_state.notification_message = ""
+if "show_copy_brief" not in st.session_state:
+    st.session_state.show_copy_brief = False
+if "show_copy_cite" not in st.session_state:
+    st.session_state.show_copy_cite = False
 
 # --- CALLBACKS ---
 def clear_form_callback():
     """Clears input widgets safely using callback"""
     keys_to_clear = [
         "i_rank", "i_fname", "i_lname", "i_award_name", "i_award_rules",
-        "i_role_man", "i_draft", "i_cite_draft", "i_ippt", "i_bmi", "i_atp"
+        "i_role_man", "i_draft", "i_cite_draft", "i_ippt", "i_bmi", "i_atp",
+        "i_previous_awards"
     ]
     for key in keys_to_clear:
         if key in st.session_state:
@@ -158,6 +144,16 @@ def sync_text_callback(field_type):
             st.session_state.history[idx]["brief"] = st.session_state[f"brief_box_{idx}"]
         elif field_type == "cite":
             st.session_state.history[idx]["cite"] = st.session_state[f"cite_box_{idx}"]
+
+def toggle_copy_brief():
+    """Toggle the copy box for brief"""
+    st.session_state.show_copy_brief = not st.session_state.show_copy_brief
+    st.session_state.show_copy_cite = False  # Hide citation copy box
+
+def toggle_copy_cite():
+    """Toggle the copy box for citation"""
+    st.session_state.show_copy_cite = not st.session_state.show_copy_cite
+    st.session_state.show_copy_brief = False  # Hide brief copy box
 
 # --- AI ENGINE ---
 def call_gemini(prompt):
@@ -294,7 +290,7 @@ with left_col:
     c1, c2, c3 = st.columns(3)
     s_rank = c1.text_input("Rank", key="i_rank", placeholder="e.g., CPL")
     s_fname = c2.text_input("Full Name", key="i_fname", placeholder="JOHN DEO").upper()
-    s_lname = c3.text_input("Preferred / First Name", key="i_lname", placeholder="DEO").upper()
+    s_lname = c3.text_input("Preferred / Last Name", key="i_lname", placeholder="DEO").upper()
     
     full_name_caps = f"{s_fname}".strip()
 
@@ -313,12 +309,27 @@ with left_col:
     st.session_state.current_month = f"{award_month} {award_year}"
 
     # 5. Extra Fields (CTO/FSM Awards Only)
+    ippt = ""
+    bmi = ""
+    atp = ""
+    previous_awards = ""
+    cite_draft = ""
+    
     if award in ["CTO Coin", "FSM Coin"]:
         st.markdown("**Additional Information**")
         q1, q2, q3 = st.columns(3)
         ippt = q1.text_input("IPPT Score", key="i_ippt", placeholder="85")
         bmi = q2.text_input("BMI", key="i_bmi", placeholder="22.5")
         atp = q3.text_input("ATP Score", key="i_atp", placeholder="33")
+        
+        # Previous Awards field
+        previous_awards = st.text_input(
+            "Previous Awards",
+            key="i_previous_awards",
+            placeholder="CO Coin, RSM Coin, BSOM",
+            help="Enter previous awards separated by commas"
+        )
+        
         cite_draft = st.text_area("Citation Draft", key="i_cite_draft", height=100, placeholder="Brief citation content...")
 
     # 6. Main Draft Input with live word count
@@ -410,7 +421,7 @@ Generate the citation now. Remember: plain text only, no formatting marks, no co
                     # ============================================================================
                     cite_out = call_gemini(cite_prompt)
                 
-                # Save to History
+                # Save to History (including additional fields for CTO/FSM)
                 st.session_state.history.append({
                     "brief": brief_out,
                     "cite": cite_out,
@@ -418,9 +429,18 @@ Generate the citation now. Remember: plain text only, no formatting marks, no co
                     "name": full_name_caps,
                     "award": actual_award_name,
                     "unit": s_unit,
-                    "month": st.session_state.current_month
+                    "month": st.session_state.current_month,
+                    "ippt": ippt,
+                    "bmi": bmi,
+                    "atp": atp,
+                    "previous_awards": previous_awards
                 })
                 st.session_state.curr_idx = len(st.session_state.history) - 1
+                
+                # Reset copy box states
+                st.session_state.show_copy_brief = False
+                st.session_state.show_copy_cite = False
+                
                 st.rerun()
 
 # ================= RIGHT COLUMN: OUTPUTS =================
@@ -451,10 +471,20 @@ with right_col:
         # Controls Row
         c1, c2 = st.columns([1, 2])
         
-        # Copy Button - Using Streamlit's code block method
-        if c1.button("📋 Copy Text", key="copy_brief", use_container_width=True):
-            st.code(val_brief, language=None)
-            st.info("👆 Click the copy icon in the top-right corner of the text box above to copy")
+        # Copy Button with toggle functionality
+        if c1.button("📋 Copy Text", key="copy_brief", use_container_width=True, on_click=toggle_copy_brief):
+            pass
+        
+        # Show copy box if toggled
+        if st.session_state.show_copy_brief:
+            st.text_area(
+                "Copy from here:",
+                value=val_brief,
+                height=150,
+                key="copy_box_brief",
+                help="Select all (Ctrl+A) and copy (Ctrl+C)",
+                label_visibility="visible"
+            )
         
         # Redo Brief
         redo_note_brief = c2.text_input(
@@ -488,9 +518,14 @@ Original Text:
                         "name": curr["name"],
                         "award": curr["award"],
                         "unit": curr["unit"],
-                        "month": curr["month"]
+                        "month": curr["month"],
+                        "ippt": curr.get("ippt", ""),
+                        "bmi": curr.get("bmi", ""),
+                        "atp": curr.get("atp", ""),
+                        "previous_awards": curr.get("previous_awards", "")
                     })
                     st.session_state.curr_idx += 1
+                    st.session_state.show_copy_brief = False
                     st.rerun()
             else:
                 st.warning("Please enter modification instructions")
@@ -515,10 +550,20 @@ Original Text:
             
             d1, d2 = st.columns([1, 2])
             
-            # Copy Citation - Using Streamlit's code block method
-            if d1.button("📋 Copy", key="copy_cite", use_container_width=True):
-                st.code(val_cite, language=None)
-                st.info("👆 Click the copy icon in the top-right corner of the text box above to copy")
+            # Copy Citation with toggle functionality
+            if d1.button("📋 Copy", key="copy_cite", use_container_width=True, on_click=toggle_copy_cite):
+                pass
+            
+            # Show copy box if toggled
+            if st.session_state.show_copy_cite:
+                st.text_area(
+                    "Copy from here:",
+                    value=val_cite,
+                    height=120,
+                    key="copy_box_cite",
+                    help="Select all (Ctrl+A) and copy (Ctrl+C)",
+                    label_visibility="visible"
+                )
             
             # Redo Citation
             redo_note_cite = d2.text_input(
@@ -547,9 +592,14 @@ Original:
                             "name": curr["name"],
                             "award": curr["award"],
                             "unit": curr["unit"],
-                            "month": curr["month"]
+                            "month": curr["month"],
+                            "ippt": curr.get("ippt", ""),
+                            "bmi": curr.get("bmi", ""),
+                            "atp": curr.get("atp", ""),
+                            "previous_awards": curr.get("previous_awards", "")
                         })
                         st.session_state.curr_idx += 1
+                        st.session_state.show_copy_cite = False
                         st.rerun()
                 else:
                     st.warning("Please enter modification instructions")
@@ -561,6 +611,8 @@ Original:
         
         if col_prev.button("⬅️ Previous", use_container_width=True, disabled=(st.session_state.curr_idx == 0)):
             st.session_state.curr_idx -= 1
+            st.session_state.show_copy_brief = False
+            st.session_state.show_copy_cite = False
             st.rerun()
         
         total_versions = len(st.session_state.history)
@@ -571,6 +623,8 @@ Original:
         
         if col_next.button("Next ➡️", use_container_width=True, disabled=(st.session_state.curr_idx >= total_versions - 1)):
             st.session_state.curr_idx += 1
+            st.session_state.show_copy_brief = False
+            st.session_state.show_copy_cite = False
             st.rerun()
 
         st.markdown("---")
@@ -587,7 +641,11 @@ Original:
                 "text": st.session_state.history[st.session_state.curr_idx]["brief"],
                 "award": curr["award"],
                 "unit": curr["unit"],
-                "month": curr["month"]
+                "month": curr["month"],
+                "ippt": curr.get("ippt", ""),
+                "bmi": curr.get("bmi", ""),
+                "atp": curr.get("atp", ""),
+                "previous_awards": curr.get("previous_awards", "")
             }
             st.session_state.batch_list.append(entry_brief)
             
@@ -606,6 +664,10 @@ Original:
             # Update Google Sheet
             update_sheet([entry_brief])
             
+            # Reset copy box states
+            st.session_state.show_copy_brief = False
+            st.session_state.show_copy_cite = False
+            
             st.success(f"✓ Accepted {curr['name']} and added to tracking sheet!")
             st.rerun()
 
@@ -618,7 +680,11 @@ Original:
                 "text": st.session_state.history[st.session_state.curr_idx]["brief"],
                 "award": curr["award"],
                 "unit": curr["unit"],
-                "month": curr["month"]
+                "month": curr["month"],
+                "ippt": curr.get("ippt", ""),
+                "bmi": curr.get("bmi", ""),
+                "atp": curr.get("atp", ""),
+                "previous_awards": curr.get("previous_awards", "")
             }
             
             # Prepare all data for export (batch + current)
@@ -673,10 +739,12 @@ Original:
         **How to use:**
         1. Select award type and role
         2. Enter serviceman details and award month
-        3. Provide draft write-up
-        4. Click Generate
-        5. Edit and refine output
-        6. Choose action:
+        3. For CTO/FSM Coin: Fill in IPPT, BMI, ATP scores and previous awards
+        4. Provide draft write-up
+        5. Click Generate
+        6. Edit and refine output
+        7. Click 'Copy Text' to show a copyable text box
+        8. Choose action:
            - **Accept & Add More**: Save to batch and enter another award
            - **Accept & Export**: Finalize and download Word document
         """)

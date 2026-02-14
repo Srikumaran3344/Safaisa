@@ -10,10 +10,14 @@ from datetime import datetime
 
 def generate_docx(items):
     """
-    Generates a Word Document with a 2-column table layout.
+    Generates a Word Document with different layouts based on award type.
+    
+    For CTO/FSM Coin: 3-column table (Name-Award, Justification, Stats)
+    For Other Awards: 2-column table (Name-Award, Justification)
     
     Args:
-        items: List of dictionaries with keys: 'rank', 'name', 'text', 'award'
+        items: List of dictionaries with keys: 'rank', 'name', 'text', 'award', 
+               and optionally 'ippt', 'bmi', 'atp', 'previous_awards'
     
     Returns:
         bytes: Word document as bytes for download
@@ -41,32 +45,110 @@ def generate_docx(items):
 
     # Generate table for each entry
     for idx, entry in enumerate(items, 1):
-        # Create a table: 1 Row, 2 Columns
-        table = doc.add_table(rows=1, cols=2)
-        table.style = 'Table Grid'
+        award_type = entry.get('award', '')
         
-        # --- COLUMN 1: RANK & NAME (Left column - 30% width) ---
-        cell_1 = table.cell(0, 0)
-        cell_1.text = f"{entry.get('rank', '')} {entry.get('name', '')}".strip()
-        cell_1.width = Inches(2.0)
+        # Determine if this is a CTO/FSM Coin award
+        is_cto_fsm = award_type in ["CTO Coin", "FSM Coin"]
         
-        # Format name cell (Bold, slightly larger)
-        for paragraph in cell_1.paragraphs:
-            paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            for run in paragraph.runs:
-                run.bold = True
-                run.font.size = Pt(12)
+        if is_cto_fsm and "(CITATION)" not in entry.get('name', ''):
+            # === 3-COLUMN LAYOUT FOR CTO/FSM COIN ===
+            table = doc.add_table(rows=1, cols=3)
+            table.style = 'Table Grid'
+            
+            # --- COLUMN 1: RANK, NAME & AWARD (20% width) ---
+            cell_1 = table.cell(0, 0)
+            cell_1.text = f"{entry.get('rank', '')} {entry.get('name', '')} - {award_type}".strip()
+            cell_1.width = Inches(1.5)
+            
+            # Format name-award cell
+            for paragraph in cell_1.paragraphs:
+                paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                for run in paragraph.runs:
+                    run.bold = True
+                    run.font.size = Pt(11)
+            
+            # --- COLUMN 2: JUSTIFICATION TEXT (50% width) ---
+            cell_2 = table.cell(0, 1)
+            cell_2.text = entry.get('text', '')
+            cell_2.width = Inches(3.5)
+            
+            # Format justification text
+            for paragraph in cell_2.paragraphs:
+                paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                for run in paragraph.runs:
+                    run.font.size = Pt(11)
+            
+            # --- COLUMN 3: STATS (IPPT, BMI, ATP, AWARDS) (30% width) ---
+            cell_3 = table.cell(0, 2)
+            cell_3.width = Inches(2.5)
+            
+            # Build stats text
+            stats_lines = []
+            
+            if entry.get('ippt'):
+                stats_lines.append(f"IPPT: {entry.get('ippt')}")
+            
+            if entry.get('bmi'):
+                stats_lines.append(f"BMI: {entry.get('bmi')}")
+            
+            if entry.get('atp'):
+                stats_lines.append(f"ATP: {entry.get('atp')}")
+            
+            # Add previous awards as bullet points
+            if entry.get('previous_awards'):
+                stats_lines.append("")  # Empty line before awards
+                stats_lines.append("AWARDS:")
+                
+                # Split by comma and clean up
+                awards_list = [award.strip() for award in entry.get('previous_awards').split(',') if award.strip()]
+                
+                for award in awards_list:
+                    stats_lines.append(f"  - {award}")
+            
+            # Set stats text
+            cell_3.text = "\n".join(stats_lines)
+            
+            # Format stats cell
+            for paragraph in cell_3.paragraphs:
+                paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                for run in paragraph.runs:
+                    run.font.size = Pt(10)
+        
+        else:
+            # === 2-COLUMN LAYOUT FOR OTHER AWARDS ===
+            table = doc.add_table(rows=1, cols=2)
+            table.style = 'Table Grid'
+            
+            # --- COLUMN 1: RANK, NAME & AWARD (30% width) ---
+            cell_1 = table.cell(0, 0)
+            
+            # Add award name to display
+            if "(CITATION)" in entry.get('name', ''):
+                # For citations, keep the original format
+                cell_1.text = f"{entry.get('rank', '')} {entry.get('name', '')}".strip()
+            else:
+                # For regular awards, add award name
+                cell_1.text = f"{entry.get('rank', '')} {entry.get('name', '')} - {award_type}".strip()
+            
+            cell_1.width = Inches(2.0)
+            
+            # Format name cell (Bold, slightly larger)
+            for paragraph in cell_1.paragraphs:
+                paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                for run in paragraph.runs:
+                    run.bold = True
+                    run.font.size = Pt(12)
 
-        # --- COLUMN 2: JUSTIFICATION TEXT (Right column - 70% width) ---
-        cell_2 = table.cell(0, 1)
-        cell_2.text = entry.get('text', '')
-        cell_2.width = Inches(5.0)
-        
-        # Format justification text
-        for paragraph in cell_2.paragraphs:
-            paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            for run in paragraph.runs:
-                run.font.size = Pt(11)
+            # --- COLUMN 2: JUSTIFICATION TEXT (70% width) ---
+            cell_2 = table.cell(0, 1)
+            cell_2.text = entry.get('text', '')
+            cell_2.width = Inches(5.0)
+            
+            # Format justification text
+            for paragraph in cell_2.paragraphs:
+                paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                for run in paragraph.runs:
+                    run.font.size = Pt(11)
         
         # Add spacing between entries (except after last entry)
         if idx < len(items):
