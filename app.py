@@ -103,6 +103,12 @@ st.markdown("""
         margin-top: 10px;
         margin-bottom: 10px;
     }
+    
+    /* Highlight copy text areas */
+    div[data-testid="stTextArea"] textarea[aria-label*="Select All"] {
+        background-color: #fffbea;
+        border: 2px solid #fbbf24;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -119,10 +125,6 @@ if "current_month" not in st.session_state:
     st.session_state.current_month = ""
 if "current_unit" not in st.session_state:
     st.session_state.current_unit = ""
-if "show_copy_brief" not in st.session_state:
-    st.session_state.show_copy_brief = False
-if "show_copy_cite" not in st.session_state:
-    st.session_state.show_copy_cite = False
 
 # --- CALLBACKS ---
 def clear_form_callback():
@@ -144,16 +146,6 @@ def sync_text_callback(field_type):
             st.session_state.history[idx]["brief"] = st.session_state[f"brief_box_{idx}"]
         elif field_type == "cite":
             st.session_state.history[idx]["cite"] = st.session_state[f"cite_box_{idx}"]
-
-def toggle_copy_brief():
-    """Toggle the copy box for brief"""
-    st.session_state.show_copy_brief = not st.session_state.show_copy_brief
-    st.session_state.show_copy_cite = False  # Hide citation copy box
-
-def toggle_copy_cite():
-    """Toggle the copy box for citation"""
-    st.session_state.show_copy_cite = not st.session_state.show_copy_cite
-    st.session_state.show_copy_brief = False  # Hide brief copy box
 
 # --- AI ENGINE ---
 def call_gemini(prompt):
@@ -437,10 +429,6 @@ Generate the citation now. Remember: plain text only, no formatting marks, no co
                 })
                 st.session_state.curr_idx = len(st.session_state.history) - 1
                 
-                # Reset copy box states
-                st.session_state.show_copy_brief = False
-                st.session_state.show_copy_cite = False
-                
                 st.rerun()
 
 # ================= RIGHT COLUMN: OUTPUTS =================
@@ -468,31 +456,12 @@ with right_col:
         word_count_brief = len(val_brief.split()) if val_brief.strip() else 0
         st.markdown(f"<p class='word-count'>Word count: {word_count_brief}</p>", unsafe_allow_html=True)
         
-        # Controls Row
-        c1, c2 = st.columns([1, 2])
-        
-        # Copy Button with toggle functionality
-        if c1.button("📋 Copy Text", key="copy_brief", use_container_width=True, on_click=toggle_copy_brief):
-            pass
-        
-        # Show copy box if toggled
-        if st.session_state.show_copy_brief:
-            st.text_area(
-                "Copy from here:",
-                value=val_brief,
-                height=150,
-                key="copy_box_brief",
-                help="Select all (Ctrl+A) and copy (Ctrl+C)",
-                label_visibility="visible"
-            )
-        
         # Redo Brief
-        redo_note_brief = c2.text_input(
+        redo_note_brief = st.text_input(
             "Modification Instructions",
             placeholder="e.g., Make more humble, add more details such as..",
-            label_visibility="collapsed"
         )
-        if c2.button("🔄 Regenerate", key="redo_brief", use_container_width=True):
+        if st.button("🔄 Regenerate Brief", key="redo_brief", use_container_width=True):
             if redo_note_brief:
                 with st.spinner("🔄 Regenerating brief..."):
                     # ============================================================================
@@ -525,7 +494,6 @@ Original Text:
                         "previous_awards": curr.get("previous_awards", "")
                     })
                     st.session_state.curr_idx += 1
-                    st.session_state.show_copy_brief = False
                     st.rerun()
             else:
                 st.warning("Please enter modification instructions")
@@ -548,30 +516,12 @@ Original Text:
             word_count_cite = len(val_cite.split()) if val_cite.strip() else 0
             st.markdown(f"<p class='word-count'>Word count: {word_count_cite}</p>", unsafe_allow_html=True)
             
-            d1, d2 = st.columns([1, 2])
-            
-            # Copy Citation with toggle functionality
-            if d1.button("📋 Copy", key="copy_cite", use_container_width=True, on_click=toggle_copy_cite):
-                pass
-            
-            # Show copy box if toggled
-            if st.session_state.show_copy_cite:
-                st.text_area(
-                    "Copy from here:",
-                    value=val_cite,
-                    height=120,
-                    key="copy_box_cite",
-                    help="Select all (Ctrl+A) and copy (Ctrl+C)",
-                    label_visibility="visible"
-                )
-            
             # Redo Citation
-            redo_note_cite = d2.text_input(
+            redo_note_cite = st.text_input(
                 "Citation Modifications",
                 placeholder="e.g., More formal",
-                label_visibility="collapsed"
             )
-            if d2.button("🔄 Regenerate", key="redo_cite", use_container_width=True):
+            if st.button("🔄 Regenerate Citation", key="redo_cite", use_container_width=True):
                 if redo_note_cite:
                     with st.spinner("🔄 Regenerating citation..."):
                         redo_prompt_cite = f"""
@@ -599,7 +549,6 @@ Original:
                             "previous_awards": curr.get("previous_awards", "")
                         })
                         st.session_state.curr_idx += 1
-                        st.session_state.show_copy_cite = False
                         st.rerun()
                 else:
                     st.warning("Please enter modification instructions")
@@ -611,8 +560,6 @@ Original:
         
         if col_prev.button("⬅️ Previous", use_container_width=True, disabled=(st.session_state.curr_idx == 0)):
             st.session_state.curr_idx -= 1
-            st.session_state.show_copy_brief = False
-            st.session_state.show_copy_cite = False
             st.rerun()
         
         total_versions = len(st.session_state.history)
@@ -623,8 +570,6 @@ Original:
         
         if col_next.button("Next ➡️", use_container_width=True, disabled=(st.session_state.curr_idx >= total_versions - 1)):
             st.session_state.curr_idx += 1
-            st.session_state.show_copy_brief = False
-            st.session_state.show_copy_cite = False
             st.rerun()
 
         st.markdown("---")
@@ -663,10 +608,6 @@ Original:
             
             # Update Google Sheet
             update_sheet([entry_brief])
-            
-            # Reset copy box states
-            st.session_state.show_copy_brief = False
-            st.session_state.show_copy_cite = False
             
             st.success(f"✓ Accepted {curr['name']} and added to tracking sheet!")
             st.rerun()
@@ -742,9 +683,8 @@ Original:
         3. For CTO/FSM Coin: Fill in IPPT, BMI, ATP scores and previous awards
         4. Provide draft write-up
         5. Click Generate
-        6. Edit and refine output
-        7. Click 'Copy Text' to show a copyable text box
-        8. Choose action:
+        6. Edit and refine output (use Ctrl+A, Ctrl+C to copy text)
+        7. Choose action:
            - **Accept & Add More**: Save to batch and enter another award
            - **Accept & Export**: Finalize and download Word document
         """)
