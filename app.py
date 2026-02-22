@@ -131,7 +131,7 @@ def clear_form_callback():
     """Clears input widgets safely using callback"""
     keys_to_clear = [
         "i_rank", "i_fname", "i_lname", "i_award_name", "i_award_rules",
-        "i_role_man", "i_draft", "i_cite_draft", "i_ippt", "i_bmi", "i_atp",
+        "i_role_man", "i_draft", "i_ippt", "i_bmi", "i_atp",
         "i_previous_awards"
     ]
     for key in keys_to_clear:
@@ -144,8 +144,6 @@ def sync_text_callback(field_type):
     if idx >= 0:
         if field_type == "brief":
             st.session_state.history[idx]["brief"] = st.session_state[f"brief_box_{idx}"]
-        elif field_type == "cite":
-            st.session_state.history[idx]["cite"] = st.session_state[f"cite_box_{idx}"]
 
 # --- AI ENGINE ---
 def call_gemini(prompt):
@@ -305,7 +303,6 @@ with left_col:
     bmi = ""
     atp = ""
     previous_awards = ""
-    cite_draft = ""
     
     if award in ["CTO Coin", "FSM Coin"]:
         st.markdown("**Additional Information**")
@@ -321,8 +318,6 @@ with left_col:
             placeholder="CO Coin, RSM Coin, BSOM",
             help="Enter previous awards separated by commas"
         )
-        
-        cite_draft = st.text_area("Citation Draft", key="i_cite_draft", height=100, placeholder="Brief citation content...")
 
     # 6. Main Draft Input with live word count
     main_draft = st.text_area(
@@ -386,37 +381,9 @@ Generate the final award justification following all rules above. Remember: plai
                 # Call AI for Brief
                 brief_out = call_gemini(prompt_text)
                 
-                # Call AI for Citation (CTO/FSM only)
-                cite_out = ""
-                if award in ["CTO Coin", "FSM Coin"]:
-                    # ============================================================================
-                    # CITATION PROMPT - EDIT CITATION RULES HERE
-                    # ============================================================================
-                    cite_prompt = f"""
-Write a formal military citation for {s_rank} {full_name_caps} from the perspective of a commander.
-
-Requirements:
-- 2 pages in length
-- Formal, professional tone
-- Highlight key achievements, duties and performance of the serviceman
-- Base content strictly on the provided context - do not hallucinate or invent achievements
-- No exercise names - refer to them as "exercise" or "overseas exercise"
-- Plain text only - NO asterisks (*), NO bold, NO italics, NO special formatting
-- Do NOT include any meta-commentary, explanations, or notes
-- Do NOT end with recommendation phrases
-- Output ONLY the citation text in plain text format
-
-Context: {cite_draft if cite_draft else main_draft}
-
-Generate the citation now. Remember: plain text only, no formatting marks, no comments.
-"""
-                    # ============================================================================
-                    cite_out = call_gemini(cite_prompt)
-                
                 # Save to History (including additional fields for CTO/FSM)
                 st.session_state.history.append({
                     "brief": brief_out,
-                    "cite": cite_out,
                     "rank": s_rank,
                     "name": full_name_caps,
                     "award": actual_award_name,
@@ -482,7 +449,6 @@ Original Text:
                     # Append new version
                     st.session_state.history.append({
                         "brief": new_b,
-                        "cite": curr["cite"],
                         "rank": curr["rank"],
                         "name": curr["name"],
                         "award": curr["award"],
@@ -497,61 +463,6 @@ Original Text:
                     st.rerun()
             else:
                 st.warning("Please enter modification instructions")
-
-        # --- CITATION SECTION (if applicable) ---
-        if curr["cite"]:
-            st.divider()
-            st.markdown("**Citation**")
-            val_cite = st.text_area(
-                "Citation Text",
-                value=curr["cite"],
-                height=120,
-                key=f"cite_box_{st.session_state.curr_idx}",
-                on_change=sync_text_callback,
-                args=("cite",),
-                help="Edit citation - changes saved automatically"
-            )
-            
-            # Live word count display for citation
-            word_count_cite = len(val_cite.split()) if val_cite.strip() else 0
-            st.markdown(f"<p class='word-count'>Word count: {word_count_cite}</p>", unsafe_allow_html=True)
-            
-            # Redo Citation
-            redo_note_cite = st.text_input(
-                "Citation Modifications",
-                placeholder="e.g., More formal",
-            )
-            if st.button("🔄 Regenerate Citation", key="redo_cite", use_container_width=True):
-                if redo_note_cite:
-                    with st.spinner("🔄 Regenerating citation..."):
-                        redo_prompt_cite = f"""
-Rewrite this citation with modifications: {redo_note_cite}
-
-Keep 2 page word limit, formal tone.
-Output ONLY the revised citation, no explanations.
-
-Original:
-{val_cite}
-"""
-                        new_c = call_gemini(redo_prompt_cite)
-                        
-                        st.session_state.history.append({
-                            "brief": curr["brief"],
-                            "cite": new_c,
-                            "rank": curr["rank"],
-                            "name": curr["name"],
-                            "award": curr["award"],
-                            "unit": curr["unit"],
-                            "month": curr["month"],
-                            "ippt": curr.get("ippt", ""),
-                            "bmi": curr.get("bmi", ""),
-                            "atp": curr.get("atp", ""),
-                            "previous_awards": curr.get("previous_awards", "")
-                        })
-                        st.session_state.curr_idx += 1
-                        st.rerun()
-                else:
-                    st.warning("Please enter modification instructions")
 
         st.divider()
 
@@ -594,18 +505,6 @@ Original:
             }
             st.session_state.batch_list.append(entry_brief)
             
-            # Add citation if exists
-            if curr["cite"]:
-                entry_cite = {
-                    "rank": curr["rank"],
-                    "name": curr["name"] + " (CITATION)",
-                    "text": st.session_state.history[st.session_state.curr_idx]["cite"],
-                    "award": curr["award"],
-                    "unit": curr["unit"],
-                    "month": curr["month"]
-                }
-                st.session_state.batch_list.append(entry_cite)
-            
             # Update Google Sheet
             update_sheet([entry_brief])
             
@@ -642,17 +541,6 @@ Original:
             # If not in batch, add current entry
             if not is_in_batch:
                 export_data.append(current_entry)
-                
-                # Add citation if exists
-                if curr["cite"]:
-                    export_data.append({
-                        "rank": curr["rank"],
-                        "name": curr["name"] + " (CITATION)",
-                        "text": st.session_state.history[st.session_state.curr_idx]["cite"],
-                        "award": curr["award"],
-                        "unit": curr["unit"],
-                        "month": curr["month"]
-                    })
                 
                 # Update Google Sheet for current entry only
                 update_sheet([current_entry])
