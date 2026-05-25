@@ -279,8 +279,8 @@ with left_col:
     
     c1, c2, c3 = st.columns(3)
     s_rank = c1.text_input("Rank", key="i_rank", placeholder="e.g., CPL")
-    s_fname = c2.text_input("Full Name", key="i_fname", placeholder="JOHN DEO").upper()
-    s_lname = c3.text_input("Preferred / First Name", key="i_lname", placeholder="DEO").upper()
+    s_fname = c2.text_input("Full Name", key="i_fname", placeholder="JOHN SMITH").upper()
+    s_lname = c3.text_input("Preferred / First Name", key="i_lname", placeholder="SMITH").upper()
     
     full_name_caps = f"{s_fname}".strip()
 
