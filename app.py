@@ -17,11 +17,11 @@ MODEL_FLASH = 'gemini-2.5-flash'  # Fallback model for speed
 # AWARD RULES CONFIGURATION
 # ============================================================================
 AWARD_WORD_LIMITS = {
-    "CO Coin": 100,
-    "RSM Coin": 100,
+    "CO Coin": 110,
+    "RSM Coin": 110,
     "CTO Coin": 100,    # Edit word limit here
     "FSM Coin": 100,    # Edit word limit here
-    "BSOM": 150,
+    "BSOM": 180,
 }
 # ============================================================================
 
